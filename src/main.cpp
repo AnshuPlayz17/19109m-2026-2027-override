@@ -1,68 +1,72 @@
 #include "main.h"
 
-#include "pros/misc.hpp"
-#include "pros/screen.hpp"
-#include "robot/drivetrain.hpp"
-#include "robot/wall_reset.hpp"
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <vector>
+
+// 19109M -- Override (2026-2027)
+// Driver control only. Split arcade: left stick drives, right stick turns.
+
+// --- Ports ------------------------------------------------------------------
+// Negative means the motor is reversed. The left side is reversed by
+// convention; if the robot drives backwards, flip the signs on BOTH sides.
+//
+//   1 = left front     3 = right front
+//   2 = left back      4 = right back
+//
+// Running a 6-motor drive? Add the third port to each list below and nothing
+// else has to change.
+const std::vector<std::int8_t> kLeftPorts = {-1, -2};
+const std::vector<std::int8_t> kRightPorts = {3, 4};
+
+// --- Feel -------------------------------------------------------------------
+// Sticks rarely rest at exactly zero. Anything smaller than this counts as
+// released, so the robot doesn't creep on its own.
+constexpr int kDeadzone = 20;
+
+// Turning at full stick is twitchy on a fast drive. Scale it down for control.
+constexpr double kTurnScale = 0.7;
+
+// The V5 motor command range.
+constexpr int kMaxPower = 127;
+
+pros::Controller master(pros::E_CONTROLLER_MASTER);
+
+pros::MotorGroup driveLeft(kLeftPorts);
+pros::MotorGroup driveRight(kRightPorts);
 
 namespace {
 
-// Hold this to snap the odometry pose against a wall. Useful for checking the
-// distance sensor offset during testing; safe to remove once it is tuned.
-constexpr pros::controller_digital_e_t kWallResetButton = pros::E_CONTROLLER_DIGITAL_Y;
+/** Treats small stick values as zero. */
+int applyDeadzone(int value) {
+    return std::abs(value) < kDeadzone ? 0 : value;
+}
 
 }  // namespace
 
 void initialize() {
-    // Blocks while the IMU calibrates -- keep the robot still.
-    robot::initDrivetrain();
-
-    // Live pose readout, which is the fastest way to spot bad odometry
-    // constants before they cost an autonomous run.
-    pros::Task screenTask([]() {
-        while (true) {
-            const lemlib::Pose pose = robot::chassis.getPose();
-            pros::screen::print(pros::E_TEXT_MEDIUM, 1, "19109M | Override");
-            pros::screen::print(pros::E_TEXT_MEDIUM, 2, "X: %.2f", pose.x);
-            pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Y: %.2f", pose.y);
-            pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Theta: %.2f", pose.theta);
-            pros::delay(50);
-        }
-    });
+    // Hold position when the sticks are released, instead of rolling on.
+    driveLeft.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    driveRight.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
 }
 
 void disabled() {}
 
 void competition_initialize() {}
 
-void autonomous() {
-    // Field position at the start of the run. Set this to wherever the robot
-    // is actually placed before each routine.
-    robot::chassis.setPose(0, 0, 0);
-
-    // Routines go here. LemLib's motions block until they finish or time out:
-    //
-    //   robot::chassis.moveToPoint(0, 24, 2000);
-    //   robot::chassis.turnToHeading(90, 1000);
-    //   robot::chassis.moveToPose(24, 24, 90, 3000);
-    //
-    // After driving into a wall and squaring up, correct the drift:
-    //
-    //   robot::resetFromWall();
-}
+void autonomous() {}
 
 void opcontrol() {
-    pros::Controller master(pros::E_CONTROLLER_MASTER);
-
     while (true) {
-        // Split arcade: left stick drives, right stick turns.
-        const int throttle = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        const int turn = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
-        robot::chassis.arcade(throttle, turn);
+        const int forward = applyDeadzone(master.get_analog(ANALOG_LEFT_Y));
+        const int turn =
+            static_cast<int>(applyDeadzone(master.get_analog(ANALOG_RIGHT_X)) * kTurnScale);
 
-        if (master.get_digital_new_press(kWallResetButton)) {
-            master.rumble(robot::resetFromWall() ? "." : "--");
-        }
+        // Arcade mixing. Clamping matters: forward + turn can reach 254, and
+        // handing a motor more than 127 would otherwise wrap or saturate badly.
+        driveLeft.move(std::clamp(forward + turn, -kMaxPower, kMaxPower));
+        driveRight.move(std::clamp(forward - turn, -kMaxPower, kMaxPower));
 
         pros::delay(20);
     }

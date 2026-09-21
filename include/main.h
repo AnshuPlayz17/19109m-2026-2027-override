@@ -5,7 +5,6 @@
 #define PROS_USE_LITERALS
 
 #include "api.h"
-#include "lemlib/api.hpp"
 
 #ifdef __cplusplus
 extern "C" {
