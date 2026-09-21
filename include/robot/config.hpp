@@ -21,6 +21,9 @@ namespace robot::config {
 // --- Ports ------------------------------------------------------------------
 // Negative port numbers mean the motor is reversed. The left side is reversed
 // by convention; if the robot drives backwards, flip the signs on both sides.
+//
+//   1 = left front    3 = right front
+//   2 = left back     4 = right back
 inline const std::vector<std::int8_t> kLeftDrivePorts = {-1, -2};
 inline const std::vector<std::int8_t> kRightDrivePorts = {3, 4};
 

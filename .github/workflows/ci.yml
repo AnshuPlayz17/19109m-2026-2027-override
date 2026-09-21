@@ -19,19 +19,14 @@ jobs:
           find src include \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) \
             -print0 | xargs -0 clang-format --dry-run --Werror
 
-  # A compile job needs the arm-none-eabi toolchain plus the PROS CLI, and the
-  # CLI does not install cleanly on current Python releases. Enable this once
-  # you have a toolchain step that works, otherwise it will sit red.
-  #
-  # build:
-  #   name: pros make
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.9'
-  #     - run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
-  #     - run: pip install pros-cli
-  #     - run: ./scripts/bootstrap.sh
-  #     - run: pros make
+  typecheck:
+    name: type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Parses the sources against the real PROS and LemLib headers with a host
+      # compiler. No ARM toolchain needed, so this catches API mistakes on every
+      # push without the fragile PROS CLI install a full build would require.
+      - name: Type-check
+        run: ./scripts/syntax-check.sh

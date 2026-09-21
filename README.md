@@ -3,25 +3,48 @@
 Competition code for team 19109M, built on [PROS 4](https://pros.cs.purdue.edu/)
 with [LemLib](https://lemlib.readthedocs.io/) for odometry and motion control.
 
-## Setup
+## Setup (VS Code)
 
 The PROS build skeleton and the LemLib template are generated rather than
-committed, so a fresh clone needs one bootstrap step:
+committed, so a fresh clone needs one bootstrap step before it will build.
 
-```bash
-git clone https://github.com/AnshuPlayz17/19109m-2026-2027-override.git
-cd 19109m-2026-2027-override
-./scripts/bootstrap.sh
-```
+1. Install the **PROS** extension in VS Code. It bundles the PROS CLI and the
+   ARM toolchain, so nothing else needs installing.
+2. Clone and open the folder:
+   ```bash
+   git clone https://github.com/AnshuPlayz17/19109m-2026-2027-override.git
+   ```
+3. Open the **PROS integrated terminal** (command palette → `PROS: Integrated
+   Terminal`) and run:
+   ```bash
+   ./scripts/bootstrap.sh
+   ```
+   A normal system terminal will not work unless you installed the CLI
+   separately — the extension only puts `pros` on the PATH of its own terminal.
+4. Reload the window. The PROS sidebar now shows Build and Upload.
 
-That generates `Makefile`, `common.mk`, `firmware/` and `include/pros/`, then
-installs LemLib. It never overwrites files already in the repo.
+Bootstrap generates `Makefile`, `common.mk`, `firmware/` and `include/pros/`,
+registers the LemLib depot and installs LemLib. It never overwrites files
+already in the repo, so your code always wins over the generated defaults.
+
+Equivalent commands, if you prefer the terminal:
 
 ```bash
 pros make                  # build
 pros upload --slot 1       # flash to the brain
 pros terminal              # view printf output
 ```
+
+### First upload checklist
+
+- Motors plugged into **1, 2** (left front, left back) and **3, 4** (right
+  front, right back). A drive motor on the wrong port means that side will not
+  move.
+- If the robot drives backwards, flip the signs on both port lists in
+  `include/robot/config.hpp`.
+- The IMU on port 10 is not needed to drive. If it is missing, LemLib retries
+  calibration five times, disables it, and continues to driver control — you
+  lose odometry and wait a few extra seconds at startup, but the robot drives.
 
 ## Robot
 
@@ -32,8 +55,10 @@ on all four corners — **450 rpm at the wheels**. Driver control is split arcad
 
 | Port | Device | Notes |
 | ---- | ------ | ----- |
-| 1, 2 | Left drive | reversed in `config.hpp` |
-| 3, 4 | Right drive | |
+| 1 | Left front drive | reversed in `config.hpp` |
+| 2 | Left back drive | reversed in `config.hpp` |
+| 3 | Right front drive | |
+| 4 | Right back drive | |
 | 10 | IMU | heading |
 | 11 | Rotation sensor | vertical tracking wheel |
 | 12 | Rotation sensor | horizontal tracking wheel |
@@ -81,13 +106,16 @@ Holding **Y** in driver control triggers a reset: a short rumble means it
 applied, a long one means the reading was rejected. That binding is there to
 check `kDistanceSensorOffset` on a real field and can be removed once tuned.
 
-## CI
+## Checks
 
-GitHub Actions checks formatting with `clang-format`. Run it yourself with:
+Two things run in CI and both run locally.
 
 ```bash
+./scripts/syntax-check.sh    # type-check against real PROS + LemLib headers
 find src include \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec clang-format -i {} +
 ```
 
-A compile job is scaffolded but commented out in `.github/workflows/ci.yml` —
-it needs an ARM toolchain step that works before it is worth enabling.
+`syntax-check.sh` clones the LemLib headers (which vendor PROS) and parses the
+sources with a host `g++`. It needs no ARM toolchain, so it catches renamed
+methods and wrong constructor arguments on every push. It does **not** link or
+produce a binary — only `pros make` does that.

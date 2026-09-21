@@ -26,6 +26,10 @@ pros conduct new-project "$skeleton" --force
 echo "==> Copying in only the files this repo does not already have"
 cp -rn "$skeleton"/. "$repo_root"/
 
+echo "==> Registering the LemLib depot"
+pros conduct add-depot LemLib \
+    https://raw.githubusercontent.com/LemLib/LemLib/depot/stable.json
+
 echo "==> Installing LemLib"
 pros conduct apply LemLib
 

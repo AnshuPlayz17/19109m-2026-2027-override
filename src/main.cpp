@@ -1,7 +1,7 @@
 #include "main.h"
 
-#include "pros/llemu.hpp"
 #include "pros/misc.hpp"
+#include "pros/screen.hpp"
 #include "robot/drivetrain.hpp"
 #include "robot/wall_reset.hpp"
 
@@ -14,8 +14,6 @@ constexpr pros::controller_digital_e_t kWallResetButton = pros::E_CONTROLLER_DIG
 }  // namespace
 
 void initialize() {
-    pros::lcd::initialize();
-
     // Blocks while the IMU calibrates -- keep the robot still.
     robot::initDrivetrain();
 
@@ -24,10 +22,10 @@ void initialize() {
     pros::Task screenTask([]() {
         while (true) {
             const lemlib::Pose pose = robot::chassis.getPose();
-            pros::lcd::print(0, "19109M | Override");
-            pros::lcd::print(1, "X: %.2f", pose.x);
-            pros::lcd::print(2, "Y: %.2f", pose.y);
-            pros::lcd::print(3, "Theta: %.2f", pose.theta);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 1, "19109M | Override");
+            pros::screen::print(pros::E_TEXT_MEDIUM, 2, "X: %.2f", pose.x);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 3, "Y: %.2f", pose.y);
+            pros::screen::print(pros::E_TEXT_MEDIUM, 4, "Theta: %.2f", pose.theta);
             pros::delay(50);
         }
     });
